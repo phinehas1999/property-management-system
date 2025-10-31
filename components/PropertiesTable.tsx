@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   ColumnDef,
-  ColumnFiltersState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -54,100 +53,70 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 
 // ---------- Sample Data ----------
-const data: TableProps[] = [
+const initialData: PropertyRow[] = [
   {
-    id: "m5gr84i9",
-    rent: 316,
-    fullName: "Chala Kebede",
-    phone: "+2519123123",
-    email: "ken99@example.com",
-    moveIn: "2024-01-12",
-    moveOut: "2025-01-12",
-    createdAt: "2024-12-01",
-    notes: "Pays rent early, reliable tenant.",
+    id: "prop_1",
+    name: "Sunset Apartments - Unit A1",
+    address: "Bole, Addis Ababa",
+    rent_amount: 316,
+    status: "available",
+    tenant_name: "Phinehas Abdu",
+    notes: "Recently renovated kitchen.",
+    created_at: "2024-12-01",
+    updated_at: "2024-12-01",
   },
   {
-    id: "3u1reuv4",
-    rent: 242,
-    fullName: "Phinehas Abdu",
-    phone: "+251912234",
-    email: "Abe45@example.com",
-    moveIn: "2023-05-14",
-    moveOut: "2024-05-13",
-    createdAt: "2023-05-01",
-    notes: "Moved out last month, left apartment in great condition.",
-  },
-  {
-    id: "derv1ws0",
-    rent: 837,
-    fullName: "Kaleb Abdu",
-    phone: "+2519123423",
-    email: "Monserrat44@example.com",
-    moveIn: "2024-02-10",
-    moveOut: "2024-09-15",
-    createdAt: "2024-01-25",
-    notes: "Considering renewing lease next quarter.",
-  },
-  {
-    id: "5kma53ae",
-    rent: 874,
-    fullName: "Benjamin Abdu",
-    phone: "+25192342345",
-    email: "Silas22@example.com",
-    moveIn: "2024-08-02",
-    moveOut: "2025-08-01",
-    createdAt: "2024-07-30",
+    id: "prop_2",
+    name: "Riverside Condo - 3B",
+    address: "Mekanisa, Addis Ababa",
+    rent_amount: 874,
+    status: "occupied",
+    tenant_name: "Benjamin Abdu",
     notes: "Requested maintenance in bathroom last month.",
+    created_at: "2024-07-30",
+    updated_at: "2024-08-02",
   },
   {
-    id: "bhqecj4p",
-    rent: 721,
-    fullName: "Abebe Kebede",
-    phone: "+251923452",
-    email: "carmella@example.com",
-    moveIn: "2023-11-15",
-    moveOut: "2024-11-14",
-    createdAt: "2023-10-30",
+    id: "prop_3",
+    name: "Greenview House",
+    address: "Mexico, Addis Ababa",
+    rent_amount: 721,
+    status: "under_maintenance",
+    tenant_name: "Kaleb Abdu",
     notes: "Currently under renovation, tenant temporarily relocated.",
-  },
-  {
-    id: "bhqecj4p",
-    rent: 721,
-    fullName: "Abebe Kebede",
-    phone: "+251923452",
-    email: "carmella@example.com",
-    moveIn: "2023-11-15",
-    moveOut: "2024-11-14",
-    createdAt: "2023-10-30",
-    notes: "Currently under renovation, tenant temporarily relocated.",
+    created_at: "2023-10-30",
+    updated_at: "2023-11-15",
   },
 ];
 
 // ---------- Types ----------
-export type TableProps = {
+export type PropertyRow = {
   id: string;
-  rent: number;
-  fullName: string;
-  phone: string;
-  email: string;
-  moveIn: string;
-  moveOut: string;
-  createdAt: string;
-  notes: string;
+  name: string;
+  address: string;
+  rent_amount: number;
+  status: "available" | "occupied" | "under_maintenance";
+  tenant_name?: string;
+  notes?: string;
+  created_at: string; // YYYY-MM-DD
+  updated_at: string; // YYYY-MM-DD
 };
 
 // ---------- Helper Component (Hydration-safe date) ----------
 function SafeDate({ date }: { date: string }) {
-  // Avoids SSR mismatches by rendering ISO first, then client updates.
   const [formatted, setFormatted] = React.useState(date);
   React.useEffect(() => {
-    setFormatted(new Date(date).toLocaleDateString());
+    try {
+      setFormatted(new Date(date).toLocaleDateString());
+    } catch (e) {
+      setFormatted(date);
+    }
   }, [date]);
   return <span>{formatted}</span>;
 }
 
 // ---------- Columns ----------
-export const columns: ColumnDef<TableProps>[] = [
+export const columns: ColumnDef<PropertyRow>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -171,35 +140,31 @@ export const columns: ColumnDef<TableProps>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "fullName",
-    header: "Full Name",
+    accessorKey: "id",
+    header: "ID",
     cell: ({ row }) => (
-      <div className="capitalize">{row.getValue("fullName")}</div>
+      <div className="font-mono text-sm">{row.getValue("id")}</div>
     ),
   },
   {
-    accessorKey: "phone",
-    header: "Phone",
-    cell: ({ row }) => <div>{row.getValue("phone")}</div>,
-  },
-  {
-    accessorKey: "email",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Email
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
+    accessorKey: "name",
+    header: "Property Name",
+    cell: ({ row }) => (
+      <div className="font-medium">{row.getValue("name")}</div>
     ),
-    cell: ({ row }) => <div className="lowercase">{row.getValue("email")}</div>,
   },
   {
-    accessorKey: "rent",
-    header: () => <div className="text-right">Monthly Rent</div>,
+    accessorKey: "address",
+    header: "Address",
+    cell: ({ row }) => (
+      <div className="text-sm truncate max-w-xs">{row.getValue("address")}</div>
+    ),
+  },
+  {
+    accessorKey: "rent_amount",
+    header: () => <div className="text-right">Rent Amount</div>,
     cell: ({ row }) => {
-      const rent = parseFloat(row.getValue("rent"));
+      const rent = Number(row.getValue("rent_amount"));
       const formatted = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
@@ -208,19 +173,32 @@ export const columns: ColumnDef<TableProps>[] = [
     },
   },
   {
-    accessorKey: "moveIn",
-    header: "Move In",
-    cell: ({ row }) => <SafeDate date={row.getValue("moveIn")} />,
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.getValue("status") as string;
+      const variants: Record<string, string> = {
+        available: "bg-green-500/10 text-green-600 dark:text-green-400",
+        occupied: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+        under_maintenance:
+          "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+      };
+      return (
+        <Badge
+          className={variants[status] || "bg-muted text-muted-foreground"}
+          variant="secondary"
+        >
+          {status.replaceAll("_", " ")}
+        </Badge>
+      );
+    },
   },
   {
-    accessorKey: "moveOut",
-    header: "Move Out",
-    cell: ({ row }) => <SafeDate date={row.getValue("moveOut")} />,
-  },
-  {
-    accessorKey: "createdAt",
-    header: "Created At",
-    cell: ({ row }) => <SafeDate date={row.getValue("createdAt")} />,
+    accessorKey: "tenant_name",
+    header: "Tenant Name",
+    cell: ({ row }) => (
+      <div className="capitalize">{row.getValue("tenant_name") || "—"}</div>
+    ),
   },
   {
     accessorKey: "notes",
@@ -241,10 +219,20 @@ export const columns: ColumnDef<TableProps>[] = [
     ),
   },
   {
+    accessorKey: "created_at",
+    header: "Created At",
+    cell: ({ row }) => <SafeDate date={row.getValue("created_at")} />,
+  },
+  {
+    accessorKey: "updated_at",
+    header: "Updated At",
+    cell: ({ row }) => <SafeDate date={row.getValue("updated_at")} />,
+  },
+  {
     id: "actions",
     enableHiding: false,
     cell: ({ row }) => {
-      const tenant = row.original;
+      const item = row.original;
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -256,12 +244,16 @@ export const columns: ColumnDef<TableProps>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(tenant.id)}
+              onClick={() => navigator.clipboard.writeText(item.id)}
             >
-              Copy Tenant ID
+              Copy Property ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => alert(JSON.stringify(item, null, 2))}
+            >
+              View details
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -270,33 +262,31 @@ export const columns: ColumnDef<TableProps>[] = [
 ];
 
 // ---------- Main Table ----------
-export function TenantsTable() {
+export function PropertiesTable() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-  const [tableData, setTableData] = React.useState(data);
+  const [tableData, setTableData] = React.useState<PropertyRow[]>(initialData);
+
   const table = useReactTable({
-    data,
+    data: tableData,
     columns,
     state: {
       sorting,
       globalFilter,
-      columnFilters,
       columnVisibility,
       rowSelection,
     },
     globalFilterFn: (row, columnId, filterValue) => {
       const value = row.getValue(columnId);
-      return String(value).toLowerCase().includes(filterValue.toLowerCase());
+      return String(value)
+        .toLowerCase()
+        .includes(String(filterValue).toLowerCase());
     },
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -309,63 +299,69 @@ export function TenantsTable() {
     <div className="w-full">
       <div className="flex items-center py-4 gap-2">
         <Input
-          placeholder="Search tenants..."
+          placeholder="Search properties or tenant..."
           value={globalFilter ?? ""}
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="max-w-sm"
         />
 
-        {/* Add Tenant Dialog */}
+        {/* Add Property Dialog */}
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="default" className="flex items-center gap-1">
-              <Plus className="h-4 w-4" /> Add Tenant
+              <Plus className="h-4 w-4" /> Add Property
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg max-h-[80vh] p-6 flex flex-col overflow-auto">
             <DialogHeader>
-              <DialogTitle>Add a New Tenant</DialogTitle>
+              <DialogTitle>Add a New Property</DialogTitle>
             </DialogHeader>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
-                const newTenant = {
-                  id: Math.random().toString(36).slice(2),
-                  fullName: formData.get("fullName") as string,
-                  phone: formData.get("phone") as string,
-                  email: formData.get("email") as string,
-                  rent: Number(formData.get("rent")),
-                  status: formData.get("status") as
-                    | "active"
-                    | "vacant"
-                    | "under maintainance",
-                  moveIn: formData.get("moveIn") as string,
-                  moveOut: formData.get("moveOut") as string,
-                  createdAt: new Date().toISOString().split("T")[0],
-                  notes: formData.get("notes") as string,
+                const id = "prop_" + Math.random().toString(36).slice(2, 9);
+                const newItem: PropertyRow = {
+                  id,
+                  name: (formData.get("name") as string) || "Untitled",
+                  address: (formData.get("address") as string) || "",
+                  rent_amount: Number(formData.get("rent_amount") || 0),
+                  status:
+                    (formData.get("status") as
+                      | "available"
+                      | "occupied"
+                      | "under_maintenance") || "available",
+                  tenant_name: (formData.get("tenant_name") as string) || "",
+                  notes: (formData.get("notes") as string) || "",
+                  created_at: new Date().toISOString().split("T")[0],
+                  updated_at: new Date().toISOString().split("T")[0],
                 };
-                setTableData((prev) => [...prev, newTenant]);
+                setTableData((prev) => [newItem, ...prev]);
                 (e.target as HTMLFormElement).reset();
               }}
               className="flex flex-col gap-4"
             >
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input id="fullName" name="fullName" required />
+                <Label htmlFor="name">Property Name</Label>
+                <Input id="name" name="name" required />
               </div>
+
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required />
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" name="address" required />
               </div>
+
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" required />
+                <Label htmlFor="rent_amount">Monthly Rent</Label>
+                <Input
+                  id="rent_amount"
+                  name="rent_amount"
+                  type="number"
+                  min="0"
+                  required
+                />
               </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="rent">Monthly Rent</Label>
-                <Input id="rent" name="rent" type="number" min="0" required />
-              </div>
+
               <div className="grid grid-cols-1 gap-2">
                 <Label htmlFor="status">Status</Label>
                 <select
@@ -374,26 +370,24 @@ export function TenantsTable() {
                   className="border rounded-md p-2 bg-background text-foreground"
                   required
                 >
-                  <option value="active">Active</option>
-                  <option value="vacant">Vacant</option>
-                  <option value="under maintainance">Under Maintenance</option>
+                  <option value="available">Available</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="under_maintenance">Under Maintenance</option>
                 </select>
               </div>
+
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="moveIn">Move In</Label>
-                <Input id="moveIn" name="moveIn" type="date" required />
+                <Label htmlFor="tenant_name">Tenant Name (optional)</Label>
+                <Input id="tenant_name" name="tenant_name" />
               </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="moveOut">Move Out</Label>
-                <Input id="moveOut" name="moveOut" type="date" required />
-              </div>
+
               <div className="grid grid-cols-1 gap-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Input id="notes" name="notes" />
               </div>
 
               <DialogFooter className="mt-2">
-                <Button type="submit">Add Tenant</Button>
+                <Button type="submit">Add Property</Button>
               </DialogFooter>
             </form>
           </DialogContent>

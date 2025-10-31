@@ -11,6 +11,7 @@ import {
   IconFileWord,
   IconFolder,
   IconHelp,
+  IconHome2,
   IconInnerShadowTop,
   IconListDetails,
   IconReport,
@@ -45,13 +46,18 @@ const data = {
       icon: IconDashboard,
     },
     {
+      title: "Properties",
+      url: "/dashboard/properties_",
+      icon: IconHome2,
+    },
+    {
       title: "Tenants",
       url: "/dashboard/tenants",
       icon: IconListDetails,
     },
     {
       title: "Analytics",
-      url: "/analytics",
+      url: "/dashboard/analytics",
       icon: IconChartBar,
     },
   ],
