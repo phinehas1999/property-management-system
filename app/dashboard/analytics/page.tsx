@@ -13,10 +13,10 @@ export default function Page() {
 
       {/* Narrow charts side by side on larger screens */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="w-full max-w-md mx-auto md:mx-0">
+        <div className="w-full  mx-auto md:mx-0">
           <AnalyticsPieChart />
         </div>
-        <div className="w-full max-w-md mx-auto md:mx-0">
+        <div className="w-full mx-auto md:mx-0">
           <AnalyticsRadarChart />
         </div>
       </div>
