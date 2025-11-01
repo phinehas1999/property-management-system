@@ -13,7 +13,16 @@ import {
   VisibilityState,
 } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Info } from "lucide-react";
+import {
+  ChevronDown,
+  MoreHorizontal,
+  Info,
+  Trash2,
+  Plus,
+  Edit2,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -50,69 +59,88 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus } from "lucide-react";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
-// ---------- Sample Data ----------
-const initialData: PropertyRow[] = [
-  {
-    id: "prop_1",
-    name: "Sunset Apartments - Unit A1",
-    address: "Bole, Addis Ababa",
-    rent_amount: 316,
-    status: "available",
-    tenant_name: "Phinehas Abdu",
-    notes: "Recently renovated kitchen.",
-    created_at: "2024-12-01",
-    updated_at: "2024-12-01",
-  },
-  {
-    id: "prop_2",
-    name: "Riverside Condo - 3B",
-    address: "Mekanisa, Addis Ababa",
-    rent_amount: 874,
-    status: "occupied",
-    tenant_name: "Benjamin Abdu",
-    notes: "Requested maintenance in bathroom last month.",
-    created_at: "2024-07-30",
-    updated_at: "2024-08-02",
-  },
-  {
-    id: "prop_3",
-    name: "Greenview House",
-    address: "Mexico, Addis Ababa",
-    rent_amount: 721,
-    status: "under_maintenance",
-    tenant_name: "Kaleb Abdu",
-    notes: "Currently under renovation, tenant temporarily relocated.",
-    created_at: "2023-10-30",
-    updated_at: "2023-11-15",
-  },
-];
+type ApiRaw = Record<string, any>;
 
-// ---------- Types ----------
 export type PropertyRow = {
-  id: string;
+  id: number;
   name: string;
   address: string;
-  rent_amount: number;
+  rentAmount: number;
   status: "available" | "occupied" | "under_maintenance";
-  tenant_name?: string;
-  notes?: string;
-  created_at: string; // YYYY-MM-DD
-  updated_at: string; // YYYY-MM-DD
+  tenantName?: string | null;
+  tenantId?: number | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
-// ---------- Helper Component (Hydration-safe date) ----------
+export type TenantRow = {
+  id: number;
+  fullName: string;
+};
+
+// ---------- Helpers ----------
 function SafeDate({ date }: { date: string }) {
   const [formatted, setFormatted] = React.useState(date);
   React.useEffect(() => {
     try {
       setFormatted(new Date(date).toLocaleDateString());
-    } catch (e) {
+    } catch {
       setFormatted(date);
     }
   }, [date]);
   return <span>{formatted}</span>;
+}
+
+function normalizeProperty(
+  raw: ApiRaw,
+  tenantsList?: TenantRow[]
+): PropertyRow {
+  const id = raw.id ?? raw.ID ?? 0;
+  const name = raw.name ?? raw.title ?? "";
+  const address = raw.address ?? raw.addr ?? "";
+  const rentAmount =
+    Number(raw.rentAmount ?? raw.rent_amount ?? raw.rent ?? 0) || 0;
+  const status = (raw.status ?? raw.state ?? "available") as
+    | "available"
+    | "occupied"
+    | "under_maintenance";
+  const tenantId = raw.tenantId ?? raw.tenant_id ?? null;
+
+  const tenantName = Array.isArray(tenantsList)
+    ? (tenantsList.find((t) => t.id === tenantId)?.fullName ?? "")
+    : (raw.tenantName ?? raw.tenant_name ?? raw.tenant ?? "");
+
+  const notes = raw.notes ?? raw.note ?? "";
+  const createdAt = raw.createdAt ?? raw.created_at ?? raw.created ?? "";
+  const updatedAt = raw.updatedAt ?? raw.updated_at ?? raw.updated ?? "";
+
+  return {
+    id,
+    name,
+    address,
+    rentAmount,
+    status,
+    tenantName,
+    tenantId,
+    notes,
+    createdAt,
+    updatedAt,
+  };
 }
 
 // ---------- Columns ----------
@@ -121,19 +149,19 @@ export const columns: ColumnDef<PropertyRow>[] = [
     id: "select",
     header: ({ table }) => (
       <Checkbox
+        // Checkbox will be checked if all rows are selected
         checked={
           table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
+          (table.getIsSomePageRowsSelected() && "indeterminate") // This line is still incorrect for the component
         }
+        // Instead, use the onChange handler to toggle all rows
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
       />
     ),
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
       />
     ),
     enableSorting: false,
@@ -161,13 +189,13 @@ export const columns: ColumnDef<PropertyRow>[] = [
     ),
   },
   {
-    accessorKey: "rent_amount",
+    accessorKey: "rentAmount",
     header: () => <div className="text-right">Rent Amount</div>,
     cell: ({ row }) => {
-      const rent = Number(row.getValue("rent_amount"));
-      const formatted = new Intl.NumberFormat("en-US", {
+      const rent = Number(row.getValue("rentAmount"));
+      const formatted = new Intl.NumberFormat("en-ET", {
         style: "currency",
-        currency: "USD",
+        currency: "ETB",
       }).format(rent);
       return <div className="text-right font-medium">{formatted}</div>;
     },
@@ -194,10 +222,10 @@ export const columns: ColumnDef<PropertyRow>[] = [
     },
   },
   {
-    accessorKey: "tenant_name",
+    accessorKey: "tenantName",
     header: "Tenant Name",
     cell: ({ row }) => (
-      <div className="capitalize">{row.getValue("tenant_name") || "—"}</div>
+      <div className="capitalize">{row.getValue("tenantName") || "—"}</div>
     ),
   },
   {
@@ -219,14 +247,14 @@ export const columns: ColumnDef<PropertyRow>[] = [
     ),
   },
   {
-    accessorKey: "created_at",
-    header: "Created At",
-    cell: ({ row }) => <SafeDate date={row.getValue("created_at")} />,
+    accessorKey: "createdAt",
+    header: "Created",
+    cell: ({ row }) => <SafeDate date={row.getValue("createdAt")} />,
   },
   {
-    accessorKey: "updated_at",
-    header: "Updated At",
-    cell: ({ row }) => <SafeDate date={row.getValue("updated_at")} />,
+    accessorKey: "updatedAt",
+    header: "Updated",
+    cell: ({ row }) => <SafeDate date={row.getValue("updatedAt")} />,
   },
   {
     id: "actions",
@@ -237,16 +265,28 @@ export const columns: ColumnDef<PropertyRow>[] = [
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(item.id)}
+              onClick={() => navigator.clipboard.writeText(item.id.toString())}
             >
               Copy Property ID
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("properties:edit", {
+                    detail: { id: item.id },
+                  })
+                );
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Edit2 className="h-4 w-4" /> Edit
+              </div>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -261,30 +301,83 @@ export const columns: ColumnDef<PropertyRow>[] = [
   },
 ];
 
-// ---------- Main Table ----------
+// ---------- Main Component ----------
 export function PropertiesTable() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-  const [tableData, setTableData] = React.useState<PropertyRow[]>(initialData);
+  const [tableData, setTableData] = React.useState<PropertyRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // Edit dialog state
+  const [isEditOpen, setIsEditOpen] = React.useState(false);
+  const [editingItem, setEditingItem] = React.useState<PropertyRow | null>(
+    null
+  );
+
+  // Tenant selection
+  const [tenantsList, setTenantsList] = React.useState<TenantRow[]>([]);
+  const [selectedTenant, setSelectedTenant] = React.useState<string | null>(
+    null
+  );
+  const [selectedTenantEdit, setSelectedTenantEdit] = React.useState<
+    string | null
+  >(null);
+
+  // ---------- Fetch properties ----------
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/properties_");
+        const raw = await res.json();
+        if (!mounted) return;
+        if (Array.isArray(raw)) {
+          setTableData(raw.map((r) => normalizeProperty(r, tenantsList)));
+        }
+      } catch (err) {
+        console.error("Failed to load properties:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [tenantsList]); // ✅ depend on tenantsList
+
+  // ---------- Fetch tenants ----------
+  React.useEffect(() => {
+    fetch("/api/tenants")
+      .then((res) => res.json())
+      .then(setTenantsList)
+      .catch(() => setTenantsList([]));
+  }, []);
+
+  // ---------- Listen for edit events ----------
+  React.useEffect(() => {
+    function onEdit(e: Event) {
+      const ev = e as CustomEvent;
+      const id = ev?.detail?.id;
+      if (!id) return;
+      const row = tableData.find((r) => r.id === Number(id));
+      if (row) {
+        setEditingItem(row);
+        setSelectedTenantEdit(row.tenantId ? String(row.tenantId) : null);
+        setIsEditOpen(true);
+      }
+    }
+    window.addEventListener("properties:edit", onEdit as EventListener);
+    return () =>
+      window.removeEventListener("properties:edit", onEdit as EventListener);
+  }, [tableData]);
 
   const table = useReactTable({
     data: tableData,
     columns,
-    state: {
-      sorting,
-      globalFilter,
-      columnVisibility,
-      rowSelection,
-    },
-    globalFilterFn: (row, columnId, filterValue) => {
-      const value = row.getValue(columnId);
-      return String(value)
-        .toLowerCase()
-        .includes(String(filterValue).toLowerCase());
-    },
+    state: { sorting, globalFilter, columnVisibility, rowSelection },
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -294,6 +387,108 @@ export function PropertiesTable() {
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
   });
+
+  function buildPayloadFromForm(fd: FormData) {
+    return {
+      name: String(fd.get("name") ?? ""),
+      address: String(fd.get("address") ?? ""),
+      rentAmount: Number(fd.get("rent_amount") ?? 0),
+      status: String(fd.get("status") ?? "available"),
+      tenantId: fd.get("tenant_id") ? Number(fd.get("tenant_id")) : null,
+      notes: String(fd.get("notes") ?? ""),
+      // snake_case for backend
+      tenant_id: fd.get("tenant_id") ? Number(fd.get("tenant_id")) : null,
+      rent_amount: Number(fd.get("rent_amount") ?? 0),
+    };
+  }
+
+  async function handleAddProperty(formData: FormData) {
+    const payload = buildPayloadFromForm(formData);
+    try {
+      const res = await fetch("/api/properties_", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return console.error("Failed to add property");
+      const raw = await res.json();
+      const newItem = normalizeProperty(raw, tenantsList); // ✅ pass tenantsList
+      setTableData((prev) => [newItem, ...prev]);
+      setSelectedTenant(null);
+    } catch (err) {
+      console.error("Failed to add property:", err);
+    }
+  }
+
+  async function handleDeleteSelected() {
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    if (!selectedRows.length) return;
+    try {
+      await Promise.all(
+        selectedRows.map((row) =>
+          fetch(`/api/properties_/${row.original.id}`, { method: "DELETE" })
+        )
+      );
+      const ids = new Set(selectedRows.map((s) => s.original.id));
+      setTableData((prev) => prev.filter((r) => !ids.has(r.id)));
+      table.resetRowSelection();
+    } catch (err) {
+      console.error("Failed to delete selected rows:", err);
+    }
+  }
+
+  async function handleDeleteSingle(id: number) {
+    try {
+      const res = await fetch(`/api/properties_/${id}`, { method: "DELETE" });
+      if (!res.ok) return console.error("Delete failed:", await res.text());
+      setTableData((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+  }
+
+  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    const fd = new FormData(e.currentTarget);
+    const payload = buildPayloadFromForm(fd);
+
+    const tenantId = payload.tenantId ?? null;
+    const tenantName =
+      tenantsList.find((t) => t.id === tenantId)?.fullName ?? "";
+
+    try {
+      const res = await fetch(`/api/properties_/${editingItem.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const raw = await res.json().catch(() => null);
+
+      const updated: PropertyRow = {
+        ...editingItem, // base previous values
+        ...payload, // updated fields from form
+        tenantName:
+          tenantsList.find((t) => t.id === payload.tenantId)?.fullName ?? null,
+        status: payload.status as
+          | "available"
+          | "occupied"
+          | "under_maintenance",
+      };
+
+      setTableData((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
+
+      setIsEditOpen(false);
+      setEditingItem(null);
+      setSelectedTenantEdit(updated.tenantId ? String(updated.tenantId) : null);
+    } catch (err) {
+      console.error("Failed to edit property:", err);
+    }
+  }
 
   return (
     <div className="w-full">
@@ -308,50 +503,33 @@ export function PropertiesTable() {
         {/* Add Property Dialog */}
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="default" className="flex items-center gap-1">
+            <Button className="flex items-center gap-1">
               <Plus className="h-4 w-4" /> Add Property
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[80vh] p-6 flex flex-col overflow-auto">
+          <DialogContent className="sm:max-w-lg p-6">
             <DialogHeader>
               <DialogTitle>Add a New Property</DialogTitle>
             </DialogHeader>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const id = "prop_" + Math.random().toString(36).slice(2, 9);
-                const newItem: PropertyRow = {
-                  id,
-                  name: (formData.get("name") as string) || "Untitled",
-                  address: (formData.get("address") as string) || "",
-                  rent_amount: Number(formData.get("rent_amount") || 0),
-                  status:
-                    (formData.get("status") as
-                      | "available"
-                      | "occupied"
-                      | "under_maintenance") || "available",
-                  tenant_name: (formData.get("tenant_name") as string) || "",
-                  notes: (formData.get("notes") as string) || "",
-                  created_at: new Date().toISOString().split("T")[0],
-                  updated_at: new Date().toISOString().split("T")[0],
-                };
-                setTableData((prev) => [newItem, ...prev]);
-                (e.target as HTMLFormElement).reset();
+                const form = e.currentTarget;
+                const formData = new FormData(form);
+                await handleAddProperty(formData);
+                if (form) form.reset(); // ✅ safe reset
               }}
               className="flex flex-col gap-4"
             >
-              <div className="grid grid-cols-1 gap-2">
+              <div>
                 <Label htmlFor="name">Property Name</Label>
                 <Input id="name" name="name" required />
               </div>
-
-              <div className="grid grid-cols-1 gap-2">
+              <div>
                 <Label htmlFor="address">Address</Label>
                 <Input id="address" name="address" required />
               </div>
-
-              <div className="grid grid-cols-1 gap-2">
+              <div>
                 <Label htmlFor="rent_amount">Monthly Rent</Label>
                 <Input
                   id="rent_amount"
@@ -361,32 +539,73 @@ export function PropertiesTable() {
                   required
                 />
               </div>
-
-              <div className="grid grid-cols-1 gap-2">
+              <div>
                 <Label htmlFor="status">Status</Label>
                 <select
                   id="status"
                   name="status"
                   className="border rounded-md p-2 bg-background text-foreground"
-                  required
                 >
                   <option value="available">Available</option>
                   <option value="occupied">Occupied</option>
                   <option value="under_maintenance">Under Maintenance</option>
                 </select>
               </div>
-
-              <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="tenant_name">Tenant Name (optional)</Label>
-                <Input id="tenant_name" name="tenant_name" />
+              <div>
+                <Label>Assign Tenant (optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {selectedTenant
+                        ? tenantsList.find(
+                            (t) => t.id === Number(selectedTenant)
+                          )?.fullName
+                        : "Select tenant"}
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search tenant..." />
+                      <CommandEmpty>No tenants found.</CommandEmpty>
+                      <CommandGroup>
+                        {tenantsList.map((t) => (
+                          <CommandItem
+                            key={t.id}
+                            value={t.fullName}
+                            onSelect={() => setSelectedTenant(String(t.id))}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedTenant === String(t.id)
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {t.fullName}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <input
+                  type="hidden"
+                  name="tenant_id"
+                  value={selectedTenant ?? ""}
+                />
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
+              <div>
                 <Label htmlFor="notes">Notes</Label>
                 <Input id="notes" name="notes" />
               </div>
-
-              <DialogFooter className="mt-2">
+              <DialogFooter>
                 <Button type="submit">Add Property</Button>
               </DialogFooter>
             </form>
@@ -398,22 +617,13 @@ export function PropertiesTable() {
           <Button
             variant="destructive"
             size="icon"
-            onClick={() => {
-              const selectedIds = new Set(
-                table
-                  .getFilteredSelectedRowModel()
-                  .rows.map((r) => r.original.id)
-              );
-              setTableData((prev) =>
-                prev.filter((t) => !selectedIds.has(t.id))
-              );
-              table.resetRowSelection();
-            }}
+            onClick={handleDeleteSelected}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
 
+        {/* Column toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -439,52 +649,58 @@ export function PropertiesTable() {
       </div>
 
       <div className="overflow-hidden rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
+        {loading ? (
+          <div className="p-6 text-center text-muted-foreground">
+            Loading properties...
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <div className="flex items-center justify-end space-x-2 py-4">
@@ -511,6 +727,154 @@ export function PropertiesTable() {
           </Button>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={isEditOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setEditingItem(null);
+            setSelectedTenantEdit(null);
+          }
+          setIsEditOpen(v);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg p-6">
+          <DialogHeader>
+            <DialogTitle>Edit Property</DialogTitle>
+          </DialogHeader>
+          {editingItem ? (
+            <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+              <div>
+                <Label htmlFor="edit_name">Property Name</Label>
+                <Input
+                  id="edit_name"
+                  name="name"
+                  defaultValue={editingItem.name}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_address">Address</Label>
+                <Input
+                  id="edit_address"
+                  name="address"
+                  defaultValue={editingItem.address}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_rent_amount">Monthly Rent</Label>
+                <Input
+                  id="edit_rent_amount"
+                  name="rent_amount"
+                  type="number"
+                  defaultValue={editingItem.rentAmount}
+                  min="0"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_status">Status</Label>
+                <select
+                  id="edit_status"
+                  name="status"
+                  defaultValue={editingItem.status}
+                  className="border rounded-md p-2 bg-background text-foreground"
+                >
+                  <option value="available">Available</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="under_maintenance">Under Maintenance</option>
+                </select>
+              </div>
+              <div>
+                <Label>Tenant (optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {selectedTenantEdit
+                        ? tenantsList.find(
+                            (t) => t.id === Number(selectedTenantEdit)
+                          )?.fullName
+                        : "Select tenant"}
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search tenant..." />
+                      <CommandEmpty>No tenants found.</CommandEmpty>
+                      <CommandGroup>
+                        {tenantsList.map((t) => (
+                          <CommandItem
+                            key={t.id}
+                            value={t.fullName}
+                            onSelect={() => setSelectedTenantEdit(String(t.id))}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedTenantEdit === String(t.id)
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {t.fullName}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <input
+                  type="hidden"
+                  name="tenant_id"
+                  value={selectedTenantEdit ?? ""}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_notes">Notes</Label>
+                <Input
+                  id="edit_notes"
+                  name="notes"
+                  defaultValue={editingItem.notes ?? ""}
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setIsEditOpen(false);
+                    setEditingItem(null);
+                    setSelectedTenantEdit(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Save</Button>
+                <Button
+                  variant="destructive"
+                  type="button"
+                  onClick={() => {
+                    handleDeleteSingle(editingItem.id);
+                    setIsEditOpen(false);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div>Loading...</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
