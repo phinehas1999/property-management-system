@@ -288,15 +288,17 @@ export function PropertiesTable() {
       cell: ({ row }) => {
         const status = row.getValue("paymentStatus") as string;
         return (
-          <Badge
-            className={
-              status === "paid"
-                ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                : "bg-red-500/10 text-red-600 dark:text-red-400"
-            }
-          >
-            {status === "paid" ? "Paid" : "Unpaid"}
-          </Badge>
+          <div className="w-full flex justify-center items-center">
+            <Badge
+              className={
+                status === "paid"
+                  ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                  : "bg-red-500/10 text-red-600 dark:text-red-400"
+              }
+            >
+              {status === "paid" ? "Paid" : "Unpaid"}
+            </Badge>
+          </div>
         );
       },
     },

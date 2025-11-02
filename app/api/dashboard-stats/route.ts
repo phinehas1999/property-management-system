@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { tenants, properties, payments } from "@/db/schema";
-import { sql, and, gte, lte, inArray } from "drizzle-orm";
+import { sql, and, gte, lte, eq } from "drizzle-orm";
 
 // Utility to get the first and last day of the current month
 function getMonthRange() {
@@ -22,19 +22,29 @@ export async function GET() {
     .from(payments)
     .where(and(gte(payments.datePaid, start), lte(payments.datePaid, end)));
 
-  // 2️⃣ Active properties (available or occupied)
-  const activePropertiesResult = await db
+  // 2️⃣ Occupied properties ONLY (status = 'occupied')
+  const occupiedPropertiesResult = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(properties)
-    .where(inArray(properties.status, ["available", "occupied"]));
+    .where(eq(properties.status, "occupied"));
 
-  // 3️⃣ New tenants who moved in this month
+  // 3️⃣ Total number of properties (any status)
+  const totalPropertiesResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(properties);
+
+  // 4️⃣ Total number of tenants (any status)
+  const totalTenantsResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(tenants);
+
+  // 5️⃣ New tenants who moved in this month
   const newTenantsResult = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(tenants)
     .where(and(gte(tenants.moveIn, start), lte(tenants.moveIn, end)));
 
-  // 4️⃣ Pending payments — tenants with no payment in the month
+  // 6️⃣ Pending payments — tenants with no payment in the month
   const pendingPaymentsResult = await db.execute(sql`
     SELECT COUNT(*)::int AS count
     FROM ${tenants}
@@ -45,16 +55,20 @@ export async function GET() {
     );
   `);
 
-  // ✅ Ensure numbers are extracted safely
+  // ✅ Safely extract values
   const totalRent = Number(totalRentResult[0]?.sum ?? 0);
-  const activeProperties = Number(activePropertiesResult[0]?.count ?? 0);
+  const occupiedProperties = Number(occupiedPropertiesResult[0]?.count ?? 0);
+  const totalProperties = Number(totalPropertiesResult[0]?.count ?? 0);
+  const totalTenants = Number(totalTenantsResult[0]?.count ?? 0);
   const newTenants = Number(newTenantsResult[0]?.count ?? 0);
   const pendingPayments = Number(pendingPaymentsResult.rows[0]?.count ?? 0);
 
-  // ✅ Return all data as JSON
+  // ✅ Return all as JSON
   return NextResponse.json({
     totalRent,
-    activeProperties,
+    totalProperties,
+    occupiedProperties,
+    totalTenants,
     newTenants,
     pendingPayments,
   });

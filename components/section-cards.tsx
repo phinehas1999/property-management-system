@@ -15,9 +15,11 @@ import { LoaderCircle } from "lucide-react";
 
 type Stats = {
   totalRent: number;
-  activeProperties: number;
+  occupiedProperties: number; // changed name here
   newTenants: number;
   pendingPayments: number;
+  totalProperties: number;
+  totalTenants: number;
 };
 
 export function SectionCards() {
@@ -31,7 +33,7 @@ export function SectionCards() {
 
   if (!stats)
     return (
-      <div className="px-4 lg:px-6 flex-row ">
+      <div className="px-4 lg:px-6 flex-row">
         <LoaderCircle size={28} className="animate-spin inline-block" />
       </div>
     );
@@ -62,39 +64,39 @@ export function SectionCards() {
         </CardFooter>
       </Card>
 
-      {/* Active Properties */}
+      {/* Occupied Properties */}
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Active Properties</CardDescription>
+          <CardDescription>Occupied Properties</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {stats.activeProperties}
+            {stats.occupiedProperties}/{stats.totalProperties}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp className="size-4" /> +1
+              <IconTrendingUp className="size-4" /> +2
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            New property added this month <IconTrendingUp className="size-4" />
+            New tenants added this month <IconTrendingUp className="size-4" />
           </div>
           <div className="text-muted-foreground">
-            Total properties currently managed
+            Total properties currently occupied
           </div>
         </CardFooter>
       </Card>
 
-      {/* New Tenants This Month */}
+      {/* Total Tenants */}
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>New Tenants This Month</CardDescription>
+          <CardDescription>Total Tenants</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {stats.newTenants}
+            {stats.totalTenants}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp className="size-4" /> +3
+              <IconTrendingUp className="size-4" /> +{stats.newTenants}
             </Badge>
           </CardAction>
         </CardHeader>
