@@ -15,6 +15,13 @@
       "when": 1761986726915,
       "tag": "0001_previous_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762057040788,
+      "tag": "0002_jazzy_alice",
+      "breakpoints": true
     }
   ]
 }

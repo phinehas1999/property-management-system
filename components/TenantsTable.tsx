@@ -176,7 +176,7 @@ export function TenantsTable() {
           const rent = Number(row.getValue("rent"));
           const formatted = new Intl.NumberFormat("en-US", {
             style: "currency",
-            currency: "USD",
+            currency: "ETB",
           }).format(rent);
           return <div className="text-right font-medium">{formatted}</div>;
         },
@@ -487,7 +487,7 @@ function AddTenantForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <Label htmlFor="fullName">Full Name</Label>
       <Input name="fullName" required />
       <Label htmlFor="email">Email</Label>

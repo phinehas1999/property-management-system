@@ -72,6 +72,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 type ApiRaw = Record<string, any>;
 
@@ -86,6 +87,7 @@ export type PropertyRow = {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  paymentStatus?: "paid" | "unpaid";
 };
 
 export type TenantRow = {
@@ -128,6 +130,7 @@ function normalizeProperty(
   const notes = raw.notes ?? raw.note ?? "";
   const createdAt = raw.createdAt ?? raw.created_at ?? raw.created ?? "";
   const updatedAt = raw.updatedAt ?? raw.updated_at ?? raw.updated ?? "";
+  const paymentStatus = raw.paymentStatus ?? raw.payment_status ?? "unpaid";
 
   return {
     id,
@@ -140,166 +143,9 @@ function normalizeProperty(
     notes,
     createdAt,
     updatedAt,
+    paymentStatus,
   };
 }
-
-// ---------- Columns ----------
-export const columns: ColumnDef<PropertyRow>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        // Checkbox will be checked if all rows are selected
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate") // This line is still incorrect for the component
-        }
-        // Instead, use the onChange handler to toggle all rows
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "id",
-    header: "ID",
-    cell: ({ row }) => (
-      <div className="font-mono text-sm">{row.getValue("id")}</div>
-    ),
-  },
-  {
-    accessorKey: "name",
-    header: "Property Name",
-    cell: ({ row }) => (
-      <div className="font-medium">{row.getValue("name")}</div>
-    ),
-  },
-  {
-    accessorKey: "address",
-    header: "Address",
-    cell: ({ row }) => (
-      <div className="text-sm truncate max-w-xs">{row.getValue("address")}</div>
-    ),
-  },
-  {
-    accessorKey: "rentAmount",
-    header: () => <div className="text-right">Rent Amount</div>,
-    cell: ({ row }) => {
-      const rent = Number(row.getValue("rentAmount"));
-      const formatted = new Intl.NumberFormat("en-ET", {
-        style: "currency",
-        currency: "ETB",
-      }).format(rent);
-      return <div className="text-right font-medium">{formatted}</div>;
-    },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      const variants: Record<string, string> = {
-        available: "bg-green-500/10 text-green-600 dark:text-green-400",
-        occupied: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-        under_maintenance:
-          "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
-      };
-      return (
-        <Badge
-          className={variants[status] || "bg-muted text-muted-foreground"}
-          variant="secondary"
-        >
-          {status.replaceAll("_", " ")}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: "tenantName",
-    header: "Tenant Name",
-    cell: ({ row }) => (
-      <div className="capitalize">{row.getValue("tenantName") || "—"}</div>
-    ),
-  },
-  {
-    accessorKey: "notes",
-    header: "Notes",
-    cell: ({ row }) => (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Info className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="max-w-xs text-sm">{row.getValue("notes")}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    ),
-  },
-  {
-    accessorKey: "createdAt",
-    header: "Created",
-    cell: ({ row }) => <SafeDate date={row.getValue("createdAt")} />,
-  },
-  {
-    accessorKey: "updatedAt",
-    header: "Updated",
-    cell: ({ row }) => <SafeDate date={row.getValue("updatedAt")} />,
-  },
-  {
-    id: "actions",
-    enableHiding: false,
-    cell: ({ row }) => {
-      const item = row.original;
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(item.id.toString())}
-            >
-              Copy Property ID
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                window.dispatchEvent(
-                  new CustomEvent("properties:edit", {
-                    detail: { id: item.id },
-                  })
-                );
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <Edit2 className="h-4 w-4" /> Edit
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => alert(JSON.stringify(item, null, 2))}
-            >
-              View details
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
-  },
-];
 
 // ---------- Main Component ----------
 export function PropertiesTable() {
@@ -326,12 +172,15 @@ export function PropertiesTable() {
     string | null
   >(null);
 
+  const [month, setMonth] = React.useState(format(new Date(), "yyyy-MM"));
+
   // ---------- Fetch properties ----------
   React.useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const res = await fetch("/api/properties_");
+        setLoading(true);
+        const res = await fetch(`/api/properties_?month=${month}`);
         const raw = await res.json();
         if (!mounted) return;
         if (Array.isArray(raw)) {
@@ -346,7 +195,7 @@ export function PropertiesTable() {
     return () => {
       mounted = false;
     };
-  }, [tenantsList]); // ✅ depend on tenantsList
+  }, [tenantsList, month]); // ✅ depend on tenantsList
 
   // ---------- Fetch tenants ----------
   React.useEffect(() => {
@@ -373,6 +222,193 @@ export function PropertiesTable() {
     return () =>
       window.removeEventListener("properties:edit", onEdit as EventListener);
   }, [tableData]);
+
+  // ---------- Columns ----------
+  const columns: ColumnDef<PropertyRow>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          // Checkbox will be checked if all rows are selected
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate") // This line is still incorrect for the component
+          }
+          // Instead, use the onChange handler to toggle all rows
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "id",
+      header: "ID",
+      cell: ({ row }) => (
+        <div className="font-mono text-sm">{row.getValue("id")}</div>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: "Property Name",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.getValue("name")}</div>
+      ),
+    },
+    {
+      accessorKey: "address",
+      header: "Address",
+      cell: ({ row }) => (
+        <div className="text-sm truncate max-w-xs">
+          {row.getValue("address")}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "rentAmount",
+      header: () => <div className="text-right">Rent Amount</div>,
+      cell: ({ row }) => {
+        const rent = Number(row.getValue("rentAmount"));
+        const formatted = new Intl.NumberFormat("en-ET", {
+          style: "currency",
+          currency: "ETB",
+        }).format(rent);
+        return <div className="text-right font-medium">{formatted}</div>;
+      },
+    },
+    {
+      accessorKey: "paymentStatus",
+      header: "Payment Status",
+      cell: ({ row }) => {
+        const status = row.getValue("paymentStatus") as string;
+        return (
+          <Badge
+            className={
+              status === "paid"
+                ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                : "bg-red-500/10 text-red-600 dark:text-red-400"
+            }
+          >
+            {status === "paid" ? "Paid" : "Unpaid"}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.getValue("status") as string;
+        const variants: Record<string, string> = {
+          available: "bg-green-500/10 text-green-600 dark:text-green-400",
+          occupied: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+          under_maintenance:
+            "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+        };
+        return (
+          <Badge
+            className={variants[status] || "bg-muted text-muted-foreground"}
+            variant="secondary"
+          >
+            {status.replaceAll("_", " ")}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "tenantName",
+      header: "Tenant Name",
+      cell: ({ row }) => (
+        <div className="capitalize">{row.getValue("tenantName") || "—"}</div>
+      ),
+    },
+    {
+      accessorKey: "notes",
+      header: "Notes",
+      cell: ({ row }) => (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Info className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs text-sm">{row.getValue("notes")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created",
+      cell: ({ row }) => <SafeDate date={row.getValue("createdAt")} />,
+    },
+    {
+      accessorKey: "updatedAt",
+      header: "Updated",
+      cell: ({ row }) => <SafeDate date={row.getValue("updatedAt")} />,
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }) => {
+        const item = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() =>
+                  navigator.clipboard.writeText(item.id.toString())
+                }
+              >
+                Copy Property ID
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent("properties:edit", {
+                      detail: { id: item.id },
+                    })
+                  );
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Edit2 className="h-4 w-4" /> Edit
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => alert(JSON.stringify(item, null, 2))}
+              >
+                View details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  recordPaymentForTenant(item.tenantId ?? null, item.rentAmount)
+                }
+              >
+                Record Payment
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
 
   const table = useReactTable({
     data: tableData,
@@ -401,19 +437,71 @@ export function PropertiesTable() {
       rent_amount: Number(fd.get("rent_amount") ?? 0),
     };
   }
+  async function recordPaymentForTenant(
+    tenantId: number | null,
+    amount: number
+  ) {
+    if (!tenantId) {
+      console.error("No tenantId provided");
+      return;
+    }
+
+    try {
+      // Post payment for the selected month (use first day of month)
+      const datePaid = `${month}-01`; // 'YYYY-MM-01' - matches your backend date_trunc logic
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId, amount, datePaid }),
+      });
+
+      if (!res.ok) {
+        console.error("Failed to record payment", await res.text());
+        return;
+      }
+
+      // Option A (safer): re-fetch the whole properties list for the current month.
+      // That ensures paymentStatus and tenantName come from the backend logic.
+      const pRes = await fetch(`/api/properties_?month=${month}`);
+      const raw = await pRes.json();
+      if (Array.isArray(raw)) {
+        setTableData(raw.map((r) => normalizeProperty(r, tenantsList)));
+      } else {
+        // fallback: try partial in-memory update to mark tenant as paid
+        setTableData((prev) =>
+          prev.map((row) =>
+            row.tenantId === tenantId ? { ...row, paymentStatus: "paid" } : row
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error recording payment:", err);
+    }
+  }
 
   async function handleAddProperty(formData: FormData) {
     const payload = buildPayloadFromForm(formData);
+
     try {
-      const res = await fetch("/api/properties_", {
+      // Include ?month=… so backend computes payment status for selected month
+      const res = await fetch(`/api/properties_?month=${month}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) return console.error("Failed to add property");
+
+      if (!res.ok) {
+        console.error("Failed to add property");
+        return;
+      }
+
       const raw = await res.json();
-      const newItem = normalizeProperty(raw, tenantsList); // ✅ pass tenantsList
+      const newItem = normalizeProperty(raw, tenantsList);
+
+      // ✅ Prepend the new property to the table immediately
       setTableData((prev) => [newItem, ...prev]);
+
+      // Optional cleanup
       setSelectedTenant(null);
     } catch (err) {
       console.error("Failed to add property:", err);
@@ -499,6 +587,20 @@ export function PropertiesTable() {
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="max-w-sm"
         />
+
+        {/* 🗓️ Month Picker */}
+        <div className="flex items-center gap-2">
+          <Label htmlFor="month" className="text-sm text-muted-foreground">
+            Month
+          </Label>
+          <Input
+            id="month"
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="w-[150px]"
+          />
+        </div>
 
         {/* Add Property Dialog */}
         <Dialog>
@@ -648,6 +750,9 @@ export function PropertiesTable() {
         </DropdownMenu>
       </div>
 
+      <p className="text-sm text-muted-foreground mb-2">
+        Showing payment status for <strong>{month}</strong>
+      </p>
       <div className="overflow-hidden rounded-md border">
         {loading ? (
           <div className="p-6 text-center text-muted-foreground">
