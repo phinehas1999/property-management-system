@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LoaderCircle } from "lucide-react";
 
 type Stats = {
   totalRent: number;
@@ -28,7 +29,12 @@ export function SectionCards() {
       .then(setStats);
   }, []);
 
-  if (!stats) return <div>Loading...</div>;
+  if (!stats)
+    return (
+      <div className="px-4 lg:px-6 flex-row ">
+        <LoaderCircle size={28} className="animate-spin inline-block" />
+      </div>
+    );
 
   return (
     <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
