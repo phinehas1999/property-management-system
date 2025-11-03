@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,16 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -37,7 +37,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// ---------------------- Types ----------------------
 type Status = "Pending" | "In Progress" | "Done";
 
 interface MaintenanceTask {
@@ -49,58 +48,18 @@ interface MaintenanceTask {
   assignedTo: string;
 }
 
-// ---------------------- Sample Data ----------------------
-const initialTasks: MaintenanceTask[] = [
-  {
-    id: 1,
-    task: "Fix leaking pipe – Unit 2B",
-    type: "Plumbing",
-    status: "In Progress",
-    dueDate: "2025-10-28",
-    assignedTo: "John D.",
-  },
-  {
-    id: 2,
-    task: "Paint hallway walls – Building A",
-    type: "Renovation",
-    status: "Pending",
-    dueDate: "2025-10-30",
-    assignedTo: "Maria L.",
-  },
-  {
-    id: 3,
-    task: "Inspect fire alarms – Building C",
-    type: "Inspection",
-    status: "Done",
-    dueDate: "2025-10-24",
-    assignedTo: "Daniel K.",
-  },
-  {
-    id: 4,
-    task: "Replace broken window – Unit 1A",
-    type: "Repair",
-    status: "Pending",
-    dueDate: "2025-10-29",
-    assignedTo: "Alex R.",
-  },
-];
-
 const statusColors: Record<Status, string> = {
   Pending: "bg-yellow-100 text-yellow-800",
   "In Progress": "bg-blue-100 text-blue-800",
   Done: "bg-green-100 text-green-800",
 };
 
-// ---------------------- Component ----------------------
 export function MaintenanceTable() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
   const [filter, setFilter] = useState("all");
-
-  const filteredTasks =
-    filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
-
-  // Dialog state
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const [newTask, setNewTask] = useState({
     task: "",
     type: "",
@@ -109,15 +68,32 @@ export function MaintenanceTable() {
     assignedTo: "",
   });
 
-  const handleAddTask = () => {
+  // Fetch tasks
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/maintenance");
+      const data = await res.json();
+      setTasks(data);
+      setLoading(false);
+    })();
+  }, []);
+
+  const filteredTasks =
+    filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
+
+  // Add new task
+  const handleAddTask = async () => {
     if (!newTask.task.trim()) return alert("Please enter a task name.");
 
-    const taskToAdd: MaintenanceTask = {
-      ...newTask,
-      id: tasks.length + 1,
-    };
+    const res = await fetch("/api/maintenance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newTask),
+    });
 
-    setTasks((prev) => [...prev, taskToAdd]);
+    const data = await res.json();
+    setTasks((prev) => [...prev, data]);
+    setOpen(false);
     setNewTask({
       task: "",
       type: "",
@@ -125,8 +101,28 @@ export function MaintenanceTable() {
       dueDate: "",
       assignedTo: "",
     });
-    setOpen(false);
   };
+
+  // Delete task
+  const handleDelete = async (id: number) => {
+    await fetch(`/api/maintenance/${id}`, { method: "DELETE" });
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Change status
+  const handleStatusChange = async (id: number, status: Status) => {
+    await fetch(`/api/maintenance/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+  };
+
+  if (loading)
+    return (
+      <div className="p-6 text-center text-muted-foreground">Loading...</div>
+    );
 
   return (
     <Card>
@@ -151,7 +147,6 @@ export function MaintenanceTable() {
             </SelectContent>
           </Select>
 
-          {/* Dialog for Adding a Task */}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
@@ -171,41 +166,34 @@ export function MaintenanceTable() {
                   placeholder="Task title"
                   value={newTask.task}
                   onChange={(e) =>
-                    setNewTask((prev) => ({ ...prev, task: e.target.value }))
+                    setNewTask((p) => ({ ...p, task: e.target.value }))
                   }
                 />
-
                 <Input
                   placeholder="Type (e.g., Plumbing, Repair)"
                   value={newTask.type}
                   onChange={(e) =>
-                    setNewTask((prev) => ({ ...prev, type: e.target.value }))
+                    setNewTask((p) => ({ ...p, type: e.target.value }))
                   }
                 />
-
                 <Input
                   type="date"
                   value={newTask.dueDate}
                   onChange={(e) =>
-                    setNewTask((prev) => ({ ...prev, dueDate: e.target.value }))
+                    setNewTask((p) => ({ ...p, dueDate: e.target.value }))
                   }
                 />
-
                 <Input
                   placeholder="Assigned to"
                   value={newTask.assignedTo}
                   onChange={(e) =>
-                    setNewTask((prev) => ({
-                      ...prev,
-                      assignedTo: e.target.value,
-                    }))
+                    setNewTask((p) => ({ ...p, assignedTo: e.target.value }))
                   }
                 />
-
                 <Select
                   value={newTask.status}
                   onValueChange={(val: Status) =>
-                    setNewTask((prev) => ({ ...prev, status: val }))
+                    setNewTask((p) => ({ ...p, status: val }))
                   }
                 >
                   <SelectTrigger>
@@ -236,17 +224,30 @@ export function MaintenanceTable() {
               <TableHead>Status</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Assigned To</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTasks.map((task) => (
               <TableRow key={task.id}>
-                <TableCell className="font-medium">{task.task}</TableCell>
+                <TableCell>{task.task}</TableCell>
                 <TableCell>{task.type}</TableCell>
                 <TableCell>
-                  <Badge className={statusColors[task.status]}>
-                    {task.status}
-                  </Badge>
+                  <Select
+                    value={task.status}
+                    onValueChange={(val: Status) =>
+                      handleStatusChange(task.id, val)
+                    }
+                  >
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell>
                   {task.dueDate
@@ -257,6 +258,15 @@ export function MaintenanceTable() {
                     : "—"}
                 </TableCell>
                 <TableCell>{task.assignedTo}</TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDelete(task.id)}
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

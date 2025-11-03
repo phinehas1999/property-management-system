@@ -17,6 +17,12 @@ export const propertyStatusEnum = pgEnum("property_status", [
   "under_maintenance",
 ]);
 
+export const maintenanceStatusEnum = pgEnum("maintenance_status", [
+  "Pending",
+  "In Progress",
+  "Done",
+]);
+
 // 🧍 Tenants table first (so properties can reference it)
 export const tenants = pgTable("tenants", {
   id: serial("id").primaryKey(),
@@ -57,5 +63,15 @@ export const payments = pgTable("payments", {
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   datePaid: date("date_paid").defaultNow().notNull(),
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const maintenance = pgTable("maintenance", {
+  id: serial("id").primaryKey(),
+  task: text("task").notNull(),
+  type: varchar("type", { length: 100 }).notNull(),
+  status: maintenanceStatusEnum("status").default("Pending").notNull(),
+  dueDate: date("due_date"),
+  assignedTo: varchar("assigned_to", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
