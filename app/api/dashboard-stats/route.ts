@@ -3,12 +3,10 @@ import { db } from "@/db";
 import { tenants, properties, payments } from "@/db/schema";
 import { sql, and, gte, lte, eq } from "drizzle-orm";
 
-// Utility to get the first and last day of the current month
 function getMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
   const format = (d: Date) => d.toISOString().split("T")[0];
   return { start: format(start), end: format(end) };
 }
@@ -22,21 +20,23 @@ export async function GET() {
     .from(payments)
     .where(and(gte(payments.datePaid, start), lte(payments.datePaid, end)));
 
-  // 2️⃣ Occupied properties ONLY (status = 'occupied')
+  // 2️⃣ Occupied properties ONLY
   const occupiedPropertiesResult = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(properties)
     .where(eq(properties.status, "occupied"));
 
-  // 3️⃣ Total number of properties (any status)
+  // 3️⃣ Total number of properties
   const totalPropertiesResult = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(properties);
 
-  // 4️⃣ Total number of tenants (any status)
-  const totalTenantsResult = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(tenants);
+  // 4️⃣ Total *assigned* tenants (those linked in properties)
+  const totalTenantsResult = await db.execute(sql`
+    SELECT COUNT(DISTINCT ${properties.tenantId})::int AS count
+    FROM ${properties}
+    WHERE ${properties.tenantId} IS NOT NULL;
+  `);
 
   // 5️⃣ New tenants who moved in this month
   const newTenantsResult = await db
@@ -44,11 +44,12 @@ export async function GET() {
     .from(tenants)
     .where(and(gte(tenants.moveIn, start), lte(tenants.moveIn, end)));
 
-  // 6️⃣ Pending payments — tenants with no payment in the month
+  // 6️⃣ Pending payments — tenants linked to a property but no payment this month
   const pendingPaymentsResult = await db.execute(sql`
-    SELECT COUNT(*)::int AS count
-    FROM ${tenants}
-    WHERE id NOT IN (
+    SELECT COUNT(DISTINCT ${properties.tenantId})::int AS count
+    FROM ${properties}
+    WHERE ${properties.tenantId} IS NOT NULL
+    AND ${properties.tenantId} NOT IN (
       SELECT ${payments.tenantId}
       FROM ${payments}
       WHERE ${payments.datePaid} BETWEEN ${start} AND ${end}
@@ -59,11 +60,11 @@ export async function GET() {
   const totalRent = Number(totalRentResult[0]?.sum ?? 0);
   const occupiedProperties = Number(occupiedPropertiesResult[0]?.count ?? 0);
   const totalProperties = Number(totalPropertiesResult[0]?.count ?? 0);
-  const totalTenants = Number(totalTenantsResult[0]?.count ?? 0);
+  const totalTenants = Number(totalTenantsResult.rows[0]?.count ?? 0);
   const newTenants = Number(newTenantsResult[0]?.count ?? 0);
   const pendingPayments = Number(pendingPaymentsResult.rows[0]?.count ?? 0);
 
-  // ✅ Return all as JSON
+  // ✅ Return JSON
   return NextResponse.json({
     totalRent,
     totalProperties,

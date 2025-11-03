@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-
 import {
   Card,
   CardContent,
@@ -16,33 +15,73 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-// Example property management data
-const chartData = [
-  { date: "2025-10-20", active: 40, vacant: 10 },
-  { date: "2025-10-21", active: 47, vacant: 3 },
-  { date: "2025-10-22", active: 44, vacant: 6 },
-  { date: "2025-10-23", active: 30, vacant: 20 },
-  { date: "2025-10-24", active: 48, vacant: 2 },
-  { date: "2025-10-25", active: 8, vacant: 42 },
-];
-
 const chartConfig = {
-  active: { label: "Active Tenants", color: "var(--primary)" },
-  vacant: { label: "Vacant Units", color: "var(--destructive)" },
+  paid: { label: "Tenants Paid", color: "var(--primary)" },
+  pending: { label: "Pending Payments", color: "var(--destructive)" },
 };
 
-export function ChartAreaProperties() {
+export function ChartAreaPayments() {
+  const [chartData, setChartData] = React.useState<any[]>([
+    // Mock data for previous days
+    { date: "2025-11-01", paid: 12, pending: 3 },
+    { date: "2025-11-02", paid: 14, pending: 1 },
+  ]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch("/api/dashboard-stats");
+        const data = await res.json();
+
+        const today = new Date();
+        const todayEntry = {
+          date: today.toISOString().split("T")[0],
+          paid: (data.totalTenants ?? 0) - (data.pendingPayments ?? 0),
+          pending: data.pendingPayments ?? 0,
+        };
+
+        setChartData((prev) => {
+          // Remove any existing entry for today
+          const filtered = prev.filter(
+            (entry) => entry.date !== today.toISOString().split("T")[0]
+          );
+          return [...filtered, todayEntry];
+        });
+      } catch (e) {
+        console.error("Failed to load dashboard data:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Tenant Payments</CardTitle>
+          <CardDescription>Loading data...</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Occupancy Overview</CardTitle>
-        <CardDescription>Active vs Vacant Units</CardDescription>
+        <CardTitle>Tenant Payments Overview</CardTitle>
+        <CardDescription>
+          See how many tenants have paid versus pending this month
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer config={chartConfig} className="h-[250px] w-full">
           <AreaChart data={chartData}>
             <defs>
-              <linearGradient id="fillActive" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="fillPaid" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
                   stopColor="var(--primary)"
@@ -54,7 +93,7 @@ export function ChartAreaProperties() {
                   stopOpacity={0.1}
                 />
               </linearGradient>
-              <linearGradient id="fillVacant" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="fillPending" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
                   stopColor="var(--destructive)"
@@ -67,6 +106,7 @@ export function ChartAreaProperties() {
                 />
               </linearGradient>
             </defs>
+
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
@@ -84,17 +124,18 @@ export function ChartAreaProperties() {
               cursor={false}
               content={<ChartTooltipContent indicator="dot" />}
             />
+
             <Area
-              dataKey="active"
+              dataKey="paid"
               type="natural"
-              fill="url(#fillActive)"
+              fill="url(#fillPaid)"
               stroke="var(--primary)"
               stackId="a"
             />
             <Area
-              dataKey="vacant"
+              dataKey="pending"
               type="natural"
-              fill="url(#fillVacant)"
+              fill="url(#fillPending)"
               stroke="var(--destructive)"
               stackId="a"
             />

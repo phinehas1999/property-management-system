@@ -1,4 +1,4 @@
-import { ChartAreaProperties } from "@/components/chart-area-interactive";
+import { ChartAreaPayments } from "@/components/chart-area-interactive";
 import { AnalyticsChartLine } from "@/components/ui/AnalyticsChartLine";
 import { AnalyticsPieChart } from "@/components/ui/AnalyticsPieChart";
 import { AnalyticsRadarChart } from "@/components/ui/AnalyticsRadarChart";
@@ -23,7 +23,7 @@ export default function Page() {
 
       {/* Full width chart area properties */}
       <div className="w-full">
-        <ChartAreaProperties />
+        <ChartAreaPayments />
       </div>
     </div>
   );

@@ -114,15 +114,18 @@ export function SectionCards() {
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Pending Payments</CardDescription>
+
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {stats.pendingPayments}
+            {stats.pendingPayments}/{stats.totalTenants}
           </CardTitle>
+
           <CardAction>
             <Badge variant="outline">
               <IconTrendingDown className="size-4" /> -10%
             </Badge>
           </CardAction>
         </CardHeader>
+
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
             Fewer overdue tenants <IconTrendingDown className="size-4" />

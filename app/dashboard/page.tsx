@@ -1,4 +1,4 @@
-import { ChartAreaProperties } from "@/components/chart-area-interactive";
+import { ChartAreaPayments } from "@/components/chart-area-interactive";
 import { MaintenanceTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
 
@@ -7,7 +7,7 @@ export default function Page() {
     <>
       <SectionCards />
       <div className="px-4 lg:px-6">
-        <ChartAreaProperties />
+        <ChartAreaPayments />
       </div>
       <div className="px-4 lg:px-6">
         <MaintenanceTable />
