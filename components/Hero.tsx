@@ -65,7 +65,7 @@ const Hero115 = ({
                   </a>
                 </Button>
                 <Button size="lg" asChild>
-                  <a href="{button.url}">
+                  <a href={button.url}>
                     {button.text} {button.icon}
                   </a>
                 </Button>
