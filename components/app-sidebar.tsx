@@ -46,13 +46,6 @@ const navMain = [
   },
 ];
 
-const navSecondary = [
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: IconSettings,
-  },
-];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -101,26 +94,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           })}
         </SidebarMenu>
 
-        <SidebarMenu className="mt-auto">
-          {navSecondary.map((item) => {
-            const isActive = pathname === item.url;
-            return (
-              <SidebarMenuItem key={item.title} data-active={isActive}>
-                <SidebarMenuButton
-                  asChild
-                  className={`data-[slot=sidebar-menu-button]:p-1.5! ${
-                    isActive ? "bg-accent text-accent-foreground" : ""
-                  }`}
-                >
-                  <Link href={item.url} className="flex items-center gap-2">
-                    <item.icon className="size-5!" />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
+        
       </SidebarContent>
 
       {/* Footer */}

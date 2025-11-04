@@ -1,5 +1,5 @@
 import { ChartAreaPayments } from "@/components/chart-area-interactive";
-import { AnalyticsChartLine } from "@/components/ui/AnalyticsChartLine";
+import { ProfitChart } from "@/components/ui/AnalyticsChartLine";
 import { AnalyticsPieChart } from "@/components/ui/AnalyticsPieChart";
 import { AnalyticsRadarChart } from "@/components/ui/AnalyticsRadarChart";
 
@@ -8,7 +8,7 @@ export default function Page() {
     <div className="px-4 lg:px-6 space-y-6">
       {/* Full width line chart */}
       <div className="w-full">
-        <AnalyticsChartLine />
+        <ProfitChart />
       </div>
 
       {/* Narrow charts side by side on larger screens */}
